@@ -1,0 +1,57 @@
+---
+import ThemeStyles from '@/components/layout/ThemeStyles.astro';
+import { siteConfig } from '@/config/site';
+import { theme } from '@/config/theme';
+import '@/styles/global.css';
+
+export interface Props {
+	head: {
+		title: string;
+		description: string;
+	};
+}
+
+const {
+	head: { title, description }
+} = Astro.props as Props;
+
+const defaultScheme = theme.default;
+const schemeList = theme.list.join('|');
+const brand = `${siteConfig.brand.name}${siteConfig.brand.accentDot ? '.' : ' '}${siteConfig.brand.tld}`;
+---
+
+<html lang={siteConfig.meta.locale} data-scheme-list={schemeList}>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<ThemeStyles />
+		<script is:inline define:vars={{ defaultScheme }}>
+			const savedTheme = localStorage.getItem('theme');
+			const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			const theme = savedTheme || systemTheme;
+			const scheme = localStorage.getItem('scheme') || defaultScheme;
+			document.documentElement.classList.toggle('dark', theme === 'dark');
+			document.documentElement.setAttribute('data-theme', theme);
+			document.documentElement.setAttribute('data-scheme', scheme);
+		</script>
+		<link rel="preload" href="/fonts/JetBrainsMono-Bold.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="canonical" href={Astro.url.href} />
+		<meta property="og:site_name" content={brand} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={Astro.url.href} />
+		<meta name="twitter:card" content="summary" />
+		{siteConfig.brand.favicon && <link rel="icon" href={siteConfig.brand.favicon} />}
+	</head>
+	<body class="min-h-screen bg-[var(--page-bg)] font-mono text-[var(--text-color)]">
+		<header class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+			<a href="/" class="text-xl font-bold">
+				{siteConfig.brand.name} {siteConfig.brand.tld}
+			</a>
+		</header>
+		<slot />
+	</body>
+</html>

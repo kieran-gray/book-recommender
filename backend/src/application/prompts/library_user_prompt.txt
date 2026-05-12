@@ -1,0 +1,7 @@
+{{instruction}}
+
+Unread Goodreads books:
+{{books}}
+
+Answers so far:
+{{answers}}

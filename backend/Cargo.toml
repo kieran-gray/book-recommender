@@ -1,0 +1,18 @@
+[package]
+name = "jess_book_recommender_backend"
+version = "0.1.0"
+edition = "2024"
+authors = ["Kieran Gray <gray.kieran@protonmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+worker = { workspace = true }
+
+[features]
+ollama = []

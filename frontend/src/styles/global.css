@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Theme tokens (`:root` etc.) are emitted at build time by
+   <ThemeStyles /> from styles/schemes.ts. */
+
+@import './base.css';
+@import './transitions.css';

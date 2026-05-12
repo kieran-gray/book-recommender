@@ -1,0 +1,54 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "jess-book-recommender-backend",
+  "main": "build/worker/shim.mjs",
+  "compatibility_date": "2026-04-28",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "build": {
+    "command": "cargo install -q worker-build && worker-build --release",
+    "cwd": "../backend"
+  },
+  "workers_dev": false,
+  "dev": {
+    "port": 8000
+  },
+  "placement": {
+    "mode": "smart"
+  },
+  "observability": {
+    "logs": {
+      "enabled": true
+    },
+    "traces": {
+      "enabled": true
+    }
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "ALLOWED_ORIGINS": "",
+    "GENERATION_MODEL": "@cf/zai-org/glm-4.7-flash"
+  },
+  "env": {
+    "dev": {
+      "build": {
+        "command": "cargo install -q worker-build && worker-build --release --features=ollama"
+      },
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "ALLOWED_ORIGINS": "",
+        // "GENERATION_MODEL": "@cf/zai-org/glm-4.7-flash",
+        "AI_PROVIDER": "ollama",
+        "GENERATION_MODEL": "ministral-3:14b",
+        "OLLAMA_HOST": "http://192.168.1.234:11434"
+      },
+      "ai": {
+        "binding": "AI"
+      }
+    }
+  }
+}

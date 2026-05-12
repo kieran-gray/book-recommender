@@ -1,0 +1,27 @@
+{
+    "name": "jess-book-recommender",
+    "private": true,
+    "workspaces": [
+        "frontend",
+        "backend"
+    ],
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "prettier": "3.6.2",
+        "prettier-plugin-astro": "0.14.1",
+        "prettier-plugin-tailwindcss": "0.6.14",
+        "wrangler": "^4.85.0"
+    },
+    "scripts": {
+        "dev": "concurrently -n frontend,backend \"npm run dev:frontend\" \"npm run dev:backend\"",
+        "dev:wrangler": "concurrently -n frontend,backend \"npm run dev:wrangler --workspace=frontend\" \"npm run dev:backend\"",
+        "dev:frontend": "npm run dev --workspace=frontend",
+        "dev:backend": "npm run dev --workspace=backend",
+        "format": "npm run format --workspaces --if-present",
+        "build": "npm run build --workspaces --if-present",
+        "build:frontend": "npm run build --workspace=frontend",
+        "build:backend": "npm run build --workspace=backend",
+        "verify": "npm run build:frontend && cargo check --package kgdev_me_backend",
+        "deploy": "npm run deploy --workspaces --if-present"
+    }
+}
