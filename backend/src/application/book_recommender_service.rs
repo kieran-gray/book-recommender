@@ -33,10 +33,12 @@ pub struct BookRecommenderService {
     ai: Arc<dyn AiInferenceServiceTrait + Send + Sync>,
 }
 
+const TARGET_RECOMMENDATIONS: usize = 3;
+
 #[derive(Debug, PartialEq)]
 pub enum RecommendationDecision {
     AskQuestions(Vec<String>),
-    Recommend(BookRecommendation),
+    Recommend(Vec<BookRecommendation>),
 }
 
 #[derive(Deserialize)]
@@ -45,6 +47,7 @@ struct AiDecision {
     questions: Option<Vec<String>>,
     question: Option<String>,
     recommendation: Option<BookRecommendation>,
+    recommendations: Option<Vec<BookRecommendation>>,
 }
 
 impl BookRecommenderService {
@@ -76,19 +79,24 @@ impl BookRecommenderServiceTrait for BookRecommenderService {
                             "Book recommender AI generated questions"
                         );
                     }
-                    RecommendationDecision::Recommend(recommendation) => {
+                    RecommendationDecision::Recommend(recommendations) => {
+                        let titles = recommendations
+                            .iter()
+                            .map(|r| r.title.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" | ");
                         console_log!(
-                            "book-recommender: AI recommended '{}' by '{}' after {} answers",
-                            recommendation.title,
-                            recommendation.author,
-                            session.answers.len()
+                            "book-recommender: AI recommended {} books after {} answers: {}",
+                            recommendations.len(),
+                            session.answers.len(),
+                            titles
                         );
                         info!(
                             book_count = session.books.len(),
                             answer_count = session.answers.len(),
-                            title = %recommendation.title,
-                            author = %recommendation.author,
-                            "Book recommender AI generated recommendation"
+                            recommendation_count = recommendations.len(),
+                            titles = %titles,
+                            "Book recommender AI generated recommendations"
                         );
                     }
                 }
@@ -164,23 +172,37 @@ impl BookRecommenderService {
             return RecommendationDecision::AskQuestions(library_aware_questions(session));
         }
 
-        let Some(book) = session.books.iter().max_by(|a, b| {
-            a.average_rating
+        let mut ranked: Vec<&BookCandidate> = session.books.iter().collect();
+        ranked.sort_by(|a, b| {
+            b.average_rating
                 .unwrap_or(0.0)
-                .partial_cmp(&b.average_rating.unwrap_or(0.0))
+                .partial_cmp(&a.average_rating.unwrap_or(0.0))
                 .unwrap_or(std::cmp::Ordering::Equal)
-        }) else {
+        });
+
+        if ranked.is_empty() {
             return RecommendationDecision::AskQuestions(vec![
-                "I could not find any unread books in the import. Can you check the Goodreads CSV?"
+                "I could not find any unread books in the import. Can you check the source?"
                     .to_string(),
             ]);
-        };
+        }
 
-        RecommendationDecision::Recommend(BookRecommendation {
-            title: book.title.clone(),
-            author: book.author.clone(),
-            reason: "This looks like the strongest unread option from the imported library based on the information available.".to_string(),
-        })
+        let recommendations = ranked
+            .into_iter()
+            .take(TARGET_RECOMMENDATIONS)
+            .enumerate()
+            .map(|(index, book)| BookRecommendation {
+                title: book.title.clone(),
+                author: book.author.clone(),
+                reason: match index {
+                    0 => "Strongest unread option from the imported library based on the information available.".to_string(),
+                    1 => "A solid alternative if the top pick does not feel right today.".to_string(),
+                    _ => "Another backup pick from the same library.".to_string(),
+                },
+            })
+            .collect();
+
+        RecommendationDecision::Recommend(recommendations)
     }
 }
 
@@ -214,10 +236,25 @@ fn parse_ai_decision(raw: &str) -> Result<RecommendationDecision, AppError> {
     })?;
 
     if decision.done {
-        let recommendation = decision.recommendation.ok_or_else(|| {
-            AppError::InternalError("AI response was done without a recommendation".to_string())
-        })?;
-        Ok(RecommendationDecision::Recommend(recommendation))
+        let mut recommendations = decision.recommendations.unwrap_or_default();
+        if let Some(single) = decision.recommendation
+            && !recommendations.iter().any(|r| {
+                r.title.eq_ignore_ascii_case(&single.title)
+                    && r.author.eq_ignore_ascii_case(&single.author)
+            }) {
+                recommendations.insert(0, single);
+            }
+        let recommendations = dedupe_recommendations(recommendations);
+        if recommendations.is_empty() {
+            return Err(AppError::InternalError(
+                "AI response was done without any recommendations".to_string(),
+            ));
+        }
+        let recommendations = recommendations
+            .into_iter()
+            .take(TARGET_RECOMMENDATIONS)
+            .collect::<Vec<_>>();
+        Ok(RecommendationDecision::Recommend(recommendations))
     } else {
         let mut questions = decision.questions.unwrap_or_default();
         if let Some(question) = decision.question {
@@ -272,6 +309,24 @@ fn extract_json(raw: &str) -> Option<String> {
         return None;
     }
     Some(trimmed[start..=end].to_string())
+}
+
+fn dedupe_recommendations(recommendations: Vec<BookRecommendation>) -> Vec<BookRecommendation> {
+    let mut seen: Vec<(String, String)> = Vec::new();
+    let mut out = Vec::new();
+    for rec in recommendations {
+        let title = rec.title.trim();
+        if title.is_empty() {
+            continue;
+        }
+        let key = (title.to_ascii_lowercase(), rec.author.to_ascii_lowercase());
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        out.push(rec);
+    }
+    out
 }
 
 fn clean_questions(questions: Vec<String>) -> Vec<String> {

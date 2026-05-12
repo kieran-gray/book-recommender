@@ -10,7 +10,7 @@ const HTTP_STATUS_INTERNAL_ERROR: u16 = 500;
 pub struct RecommendBookResponse {
     pub done: bool,
     pub questions: Vec<String>,
-    pub recommendation: Option<BookRecommendation>,
+    pub recommendations: Vec<BookRecommendation>,
 }
 
 impl From<AppError> for worker::Response {

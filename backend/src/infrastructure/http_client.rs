@@ -22,11 +22,7 @@ impl WorkerHttpClient {
         Self
     }
 
-    fn build_get_request(
-        &self,
-        url: &str,
-        headers: Vec<(&str, &str)>,
-    ) -> Result<Request, String> {
+    fn build_get_request(&self, url: &str, headers: Vec<(&str, &str)>) -> Result<Request, String> {
         let mut init = RequestInit::new();
         init.with_method(Method::Get);
 

@@ -12,14 +12,16 @@ interface Answer {
 	answer: string;
 }
 
+interface Recommendation {
+	title: string;
+	author: string;
+	reason: string;
+}
+
 interface ApiResponse {
 	done: boolean;
 	questions: string[];
-	recommendation: {
-		title: string;
-		author: string;
-		reason: string;
-	} | null;
+	recommendations: Recommendation[];
 }
 
 interface FableList {
@@ -163,7 +165,6 @@ function setup() {
 
 	const endpoint = root.dataset.endpoint ?? '/api/recommend';
 	const fileInput = document.getElementById('goodreads-csv') as HTMLInputElement | null;
-	const count = document.getElementById('book-count');
 	const summary = document.getElementById('library-summary');
 	const status = document.getElementById('book-status');
 	const form = document.getElementById('question-form') as HTMLFormElement | null;
@@ -176,6 +177,8 @@ function setup() {
 	const recTitle = document.getElementById('recommendation-title');
 	const recAuthor = document.getElementById('recommendation-author');
 	const recReason = document.getElementById('recommendation-reason');
+	const recProgress = document.getElementById('recommendation-progress');
+	const nextRecommendation = document.getElementById('next-recommendation') as HTMLButtonElement | null;
 	const startOver = document.getElementById('start-over');
 	const sourceTabs = Array.from(
 		document.querySelectorAll<HTMLButtonElement>('.source-tab')
@@ -190,7 +193,6 @@ function setup() {
 
 	if (
 		!fileInput ||
-		!count ||
 		!summary ||
 		!status ||
 		!form ||
@@ -203,6 +205,8 @@ function setup() {
 		!recTitle ||
 		!recAuthor ||
 		!recReason ||
+		!recProgress ||
+		!nextRecommendation ||
 		!startOver ||
 		!fableForm ||
 		!fableUrl ||
@@ -213,7 +217,6 @@ function setup() {
 	}
 	const els = {
 		fileInput,
-		count,
 		summary,
 		status,
 		form,
@@ -226,6 +229,8 @@ function setup() {
 		recTitle,
 		recAuthor,
 		recReason,
+		recProgress,
+		nextRecommendation,
 		startOver,
 		fableForm,
 		fableUrl,
@@ -237,6 +242,8 @@ function setup() {
 	let answers: Answer[] = [];
 	let questions: string[] = [];
 	let questionIndex = 0;
+	let recommendations: Recommendation[] = [];
+	let recommendationIndex = 0;
 	let currentSource: Source = 'csv';
 
 	function setStatus(message: string) {
@@ -275,12 +282,13 @@ function setup() {
 		answers = [];
 		questions = [];
 		questionIndex = 0;
+		recommendations = [];
+		recommendationIndex = 0;
 		els.form.hidden = true;
 		els.recPanel.hidden = true;
 		els.summary.hidden = true;
 		els.fableLists.hidden = true;
 		els.fableListOptions.replaceChildren();
-		els.count.textContent = 'No source';
 		app.dataset.state = 'ready';
 		setStatus('');
 	}
@@ -291,6 +299,20 @@ function setup() {
 			if (source) selectSource(source);
 		});
 	});
+
+	function showRecommendation() {
+		const current = recommendations[recommendationIndex];
+		if (!current) return;
+		els.form.hidden = true;
+		els.recPanel.hidden = false;
+		renderStyledText(els.recTitle, current.title);
+		renderStyledText(els.recAuthor, `by ${current.author}`);
+		renderStyledText(els.recReason, current.reason);
+		els.recProgress.textContent = `${recommendationIndex + 1} of ${recommendations.length}`;
+		const hasNext = recommendationIndex < recommendations.length - 1;
+		els.nextRecommendation.hidden = !hasNext;
+		els.nextRecommendation.disabled = !hasNext;
+	}
 
 	function showQuestion() {
 		const currentQuestion = questions[questionIndex];
@@ -324,12 +346,10 @@ function setup() {
 			}
 
 			const payload = (await response.json()) as ApiResponse;
-			if (payload.done && payload.recommendation) {
-				els.form.hidden = true;
-				els.recPanel.hidden = false;
-				renderStyledText(els.recTitle, payload.recommendation.title);
-				renderStyledText(els.recAuthor, `by ${payload.recommendation.author}`);
-				renderStyledText(els.recReason, payload.recommendation.reason);
+			if (payload.done && payload.recommendations.length > 0) {
+				recommendations = payload.recommendations;
+				recommendationIndex = 0;
+				showRecommendation();
 				setStatus('');
 			} else if (payload.questions.length > 0) {
 				questions = payload.questions;
@@ -417,7 +437,6 @@ function setup() {
 			answers = [];
 			questions = [];
 			questionIndex = 0;
-			els.count.textContent = `${books.length} from Fable`;
 			els.summary.hidden = false;
 			els.summary.textContent = `Loaded ${books.length} books from "${list.name}".`;
 			if (books.length === 0) {
@@ -443,7 +462,6 @@ function setup() {
 		questions = [];
 		questionIndex = 0;
 		app.dataset.state = 'uploaded';
-		count.textContent = `${books.length} unread`;
 		summary.hidden = false;
 		summary.textContent = `Found ${books.length} unread books from ${rows.length} Goodreads rows.`;
 		if (books.length === 0) {
@@ -473,10 +491,19 @@ function setup() {
 		showQuestion();
 	});
 
+	nextRecommendation.addEventListener('click', () => {
+		if (recommendationIndex < recommendations.length - 1) {
+			recommendationIndex += 1;
+			showRecommendation();
+		}
+	});
+
 	startOver.addEventListener('click', () => {
 		answers = [];
 		questions = [];
 		questionIndex = 0;
+		recommendations = [];
+		recommendationIndex = 0;
 		recPanel.hidden = true;
 		if (books.length > 0) void askBackend();
 	});

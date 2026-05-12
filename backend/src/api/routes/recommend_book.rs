@@ -30,12 +30,12 @@ pub async fn recommend_book_handler(
         RecommendationDecision::AskQuestions(questions) => RecommendBookResponse {
             done: false,
             questions,
-            recommendation: None,
+            recommendations: Vec::new(),
         },
-        RecommendationDecision::Recommend(recommendation) => RecommendBookResponse {
+        RecommendationDecision::Recommend(recommendations) => RecommendBookResponse {
             done: true,
             questions: Vec::new(),
-            recommendation: Some(recommendation),
+            recommendations,
         },
     };
 
